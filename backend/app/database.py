@@ -15,7 +15,8 @@ class Database:
         """建立資料庫連線"""
         mongo_url = settings.MONGODB_URL
         client_options = {}
-        if "mongodb+srv://" in mongo_url or "tls=true" in mongo_url.lower():
+        if "mongodb+srv://" in mongo_url.lower() or "tls=true" in mongo_url.lower():
+            client_options.setdefault("tls", True)
             client_options["tlsCAFile"] = certifi.where()
         self.client = AsyncIOMotorClient(mongo_url, **client_options)
         # 測試連線
