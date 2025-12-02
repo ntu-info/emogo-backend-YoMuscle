@@ -14,10 +14,18 @@ class Database:
     async def connect(self):
         """建立資料庫連線"""
         mongo_url = settings.MONGODB_URL
-        client_options = {}
+        client_options = {
+            "serverSelectionTimeoutMS": 30000,
+            "connectTimeoutMS": 30000,
+            "socketTimeoutMS": 30000,
+        }
+        # 對 Atlas (SRV) 連線強制使用系統 CA bundle
         if "mongodb+srv://" in mongo_url.lower() or "tls=true" in mongo_url.lower():
-            client_options.setdefault("tls", True)
+            client_options["tls"] = True
             client_options["tlsCAFile"] = certifi.where()
+            client_options["tlsAllowInvalidCertificates"] = False
+        
+        print(f"🔗 Connecting to MongoDB with URL: {mongo_url[:40]}...")
         self.client = AsyncIOMotorClient(mongo_url, **client_options)
         # 測試連線
         await self.client.admin.command('ping')
