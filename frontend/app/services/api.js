@@ -5,10 +5,20 @@
 import { Platform } from 'react-native';
 
 // API 基礎配置
-// 開發時使用本地端，生產環境使用實際後端 URL
+// 設為 true 使用遠端後端，false 使用本地後端（模擬器測試用）
+const USE_REMOTE_BACKEND = true;
+
 const getBaseUrl = () => {
+  // 遠端後端 URL
+  const REMOTE_URL = 'https://emogo-backend-yomuscle.onrender.com';
+  
+  // 如果設定使用遠端後端，直接返回遠端 URL
+  if (USE_REMOTE_BACKEND) {
+    return REMOTE_URL;
+  }
+  
+  // 本地開發（模擬器用）
   if (__DEV__) {
-    // 開發模式
     if (Platform.OS === 'android') {
       // Android 模擬器使用 10.0.2.2 來訪問本機
       return 'http://10.0.2.2:8000';
@@ -20,8 +30,8 @@ const getBaseUrl = () => {
       return 'http://localhost:8000';
     }
   }
-  // 生產環境 - Render 部署的 URL（部署後請更新此值）
-  return 'https://emogo-backend.onrender.com';
+  
+  return REMOTE_URL;
 };
 
 const API_BASE_URL = getBaseUrl();
@@ -67,7 +77,10 @@ const apiRequest = async (endpoint, options = {}) => {
  */
 export const checkHealth = async () => {
   try {
-    const data = await apiRequest('/health', { method: 'GET' });
+    // health 端點在根路徑，不使用 /api/v1 前綴
+    const url = `${API_BASE_URL}/health`;
+    const response = await fetch(url);
+    const data = await response.json();
     return { connected: true, data };
   } catch (error) {
     return { connected: false, error: error.message };
