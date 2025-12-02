@@ -1,0 +1,151 @@
+{
+  "exportedAt": "2025-11-27T03:36:13.936Z",
+  "totalRecords": 9,
+  "records": [
+    {
+      "memo": "上課記錄 part3",
+      "mood": "calm",
+      "location": {
+        "accuracy": 15.569000244140625,
+        "altitude": 47.5,
+        "altitudeAccuracy": 1,
+        "heading": 0,
+        "latitude": 25.0143262,
+        "longitude": 121.5414502,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/1cdbe055-d9ac-4b32-89af-e6a5ced02afe.mp4",
+      "hasVideo": true,
+      "id": 1764214522961,
+      "createdAt": "2025-11-27T03:35:22.961Z"
+    },
+    {
+      "memo": "上課記錄\n\n\n\n",
+      "mood": "calm",
+      "location": null,
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/cb7e33f8-8a8f-410b-9322-e30af07f28a3.mp4",
+      "hasVideo": true,
+      "id": 1764207409843,
+      "createdAt": "2025-11-27T01:36:49.843Z"
+    },
+    {
+      "memo": "Test 123",
+      "mood": "neutral",
+      "location": {
+        "accuracy": 100,
+        "altitude": 23.600000381469727,
+        "altitudeAccuracy": 23.248916625976562,
+        "heading": 0,
+        "latitude": 25.077467,
+        "longitude": 121.5505305,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/e8ca5f8b-b5e8-47cf-9a75-f60616c5236d.mp4",
+      "hasVideo": true,
+      "id": 1764190152610,
+      "createdAt": "2025-11-26T20:49:12.610Z"
+    },
+    {
+      "memo": "好吃\n",
+      "mood": "happy",
+      "location": {
+        "accuracy": 16.01799964904785,
+        "altitude": 23.600000381469727,
+        "altitudeAccuracy": 1.133815884590149,
+        "heading": 0,
+        "latitude": 25.077467,
+        "longitude": 121.5505305,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/db24af4e-3d24-4780-af35-471442730711.mp4",
+      "hasVideo": true,
+      "id": 1764159473111,
+      "createdAt": "2025-11-26T12:17:53.111Z"
+    },
+    {
+      "memo": "爸爸很開心",
+      "mood": "happy",
+      "location": {
+        "accuracy": 100,
+        "altitude": 24,
+        "altitudeAccuracy": 100,
+        "heading": 0,
+        "latitude": 25.0775464,
+        "longitude": 121.5505742,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/86f041df-e904-4157-be0e-12c9a9bb941b.mp4",
+      "hasVideo": true,
+      "id": 1764158021319,
+      "createdAt": "2025-11-26T11:53:41.319Z"
+    },
+    {
+      "memo": "跟爸爸分享新的軟體",
+      "mood": "happy",
+      "location": {
+        "accuracy": 18.43400001525879,
+        "altitude": 24,
+        "altitudeAccuracy": 1.0273035764694214,
+        "heading": 0,
+        "latitude": 25.0775464,
+        "longitude": 121.5505742,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/6decd5c9-79e8-416c-b368-a6ee1e6272f0.mp4",
+      "hasVideo": true,
+      "id": 1764114327306,
+      "createdAt": "2025-11-25T23:45:27.309Z"
+    },
+    {
+      "memo": "Notification test",
+      "mood": "calm",
+      "location": {
+        "accuracy": 17.888999938964844,
+        "altitude": 24,
+        "altitudeAccuracy": 3.4192020893096924,
+        "heading": 0,
+        "latitude": 25.0775339,
+        "longitude": 121.5505578,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/d8eb16b4-59b4-4ceb-ae3d-326edff54b96.mp4",
+      "hasVideo": true,
+      "id": 1764111428539,
+      "createdAt": "2025-11-25T22:57:08.539Z"
+    },
+    {
+      "memo": "第二筆記錄\n",
+      "mood": "happy",
+      "location": {
+        "accuracy": 19.716999053955078,
+        "altitude": 24,
+        "altitudeAccuracy": 1.182213544845581,
+        "heading": 0,
+        "latitude": 25.077542,
+        "longitude": 121.5505865,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/45126a76-2ebb-4462-993b-856a2bc27a8c.mp4",
+      "hasVideo": true,
+      "id": 1764110223950,
+      "createdAt": "2025-11-25T22:37:03.950Z"
+    },
+    {
+      "memo": "成功了！",
+      "mood": "happy",
+      "location": {
+        "accuracy": 16.270999908447266,
+        "altitude": 24,
+        "altitudeAccuracy": 3.026012659072876,
+        "heading": 0,
+        "latitude": 25.0775506,
+        "longitude": 121.5505563,
+        "speed": 0
+      },
+      "videoUri": "file:///data/user/0/com.yomuscle.exporoutermwe/cache/Camera/3754836f-e6f8-4f97-abef-d96acc9a0c18.mp4",
+      "hasVideo": true,
+      "id": 1764109664443,
+      "createdAt": "2025-11-25T22:27:44.443Z"
+    }
+  ]
+}

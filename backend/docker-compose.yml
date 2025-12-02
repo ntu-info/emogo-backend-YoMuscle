@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: emogo-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=${MONGODB_URL}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - APP_ENV=${APP_ENV}
+      - DEBUG=${DEBUG}
+      - SECRET_KEY=${SECRET_KEY}
+      - STORAGE_TYPE=${STORAGE_TYPE}
+      - MAX_VIDEO_SIZE_MB=${MAX_VIDEO_SIZE_MB}
+      - ALLOWED_VIDEO_TYPES=${ALLOWED_VIDEO_TYPES}
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
+  # 本地開發用的 MongoDB（生產環境使用 MongoDB Atlas）
+  mongodb:
+    image: mongo:7.0
+    container_name: emogo-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    profiles:
+      - dev
+
+volumes:
+  mongodb_data:

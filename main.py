@@ -1,14 +1,6 @@
-from typing import Optional
+# 此檔案已棄用，實際後端在 backend/ 目錄
+# 部署請參考 render.yaml 配置
 
-from fastapi import FastAPI
-
-app = FastAPI()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Optional[str] = None):
-    return {"item_id": item_id, "q": q}
+# 如需本地測試，請執行：
+# cd backend
+# uvicorn app.main:app --reload --port 8000

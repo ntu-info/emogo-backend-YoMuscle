@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "scheme": "acme",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "允許 $(PRODUCT_NAME) 使用相機來錄製影片",
+          "microphonePermission": "允許 $(PRODUCT_NAME) 使用麥克風來錄製影片音訊",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "允許 $(PRODUCT_NAME) 使用您的位置來記錄地點"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允許 $(PRODUCT_NAME) 存取您的相簿來儲存影片",
+          "savePhotosPermission": "允許 $(PRODUCT_NAME) 儲存影片到您的相簿"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#007AFF"
+        }
+      ]
+    ],
+    "name": "expo-router-mwe",
+    "slug": "expo-router-mwe",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c1291601-481b-471f-8d8a-1a6cefe60f5d"
+      }
+    },
+    "android": {
+      "package": "com.yomuscle.exporoutermwe",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ]
+    }
+  }
+}

@@ -106,3 +106,11 @@ venv.bak/
 
 # Mac OS
 .DS_Store
+
+
+# Uploads
+.emogo/
+
+
+# Node modules
+frontend/node_modules/
