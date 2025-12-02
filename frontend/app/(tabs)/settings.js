@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { clearAllRecords, exportRecordsAsJSON, getAllRecords, getPendingSyncCount, getUserId, getLastSyncTime } from "../utils/storage";
 import { fullSync, isOnline, subscribeToNetworkChanges } from "../services/sync";
-import { checkHealth } from "../services/api";
+import { checkHealth, getEntries } from "../services/api";
 
 export default function SettingsScreen() {
   const [pendingCount, setPendingCount] = useState(0);
@@ -159,6 +159,64 @@ export default function SettingsScreen() {
     );
   };
 
+  // 診斷功能 - 顯示詳細的本地和雲端資料狀態
+  const handleDiagnose = async () => {
+    try {
+      const userId = await getUserId();
+      const localRecords = await getAllRecords();
+      const pendingCount = await getPendingSyncCount();
+      const online = await isOnline();
+      
+      let serverInfo = "無法連線";
+      let serverCount = 0;
+      
+      if (online) {
+        try {
+          const serverData = await getEntries({ user_id: userId, limit: 100 });
+          serverCount = serverData.total || 0;
+          serverInfo = `已連線 (${serverCount} 筆記錄)`;
+        } catch (e) {
+          serverInfo = `連線錯誤: ${e.message}`;
+        }
+      }
+
+      const localSynced = localRecords.filter(r => r.synced).length;
+      const localPending = localRecords.filter(r => !r.synced).length;
+
+      const diagInfo = `
+📱 使用者 ID:
+${userId}
+
+📂 本地資料:
+- 總筆數: ${localRecords.length}
+- 已同步: ${localSynced}
+- 待同步: ${localPending}
+
+☁️ 雲端資料:
+- 狀態: ${serverInfo}
+
+🌐 網路狀態: ${online ? '已連線' : '離線'}
+
+📋 本地記錄詳情:
+${localRecords.slice(0, 5).map((r, i) => 
+  `${i + 1}. ${r.synced ? '✅' : '⏳'} ${(r.memo || r.content || '無文字').substring(0, 20)}...`
+).join('\n') || '(無記錄)'}
+${localRecords.length > 5 ? `\n...還有 ${localRecords.length - 5} 筆` : ''}
+      `.trim();
+
+      Alert.alert("🔍 診斷資訊", diagInfo, [
+        { text: "複製", onPress: () => {
+          if (Platform.OS !== 'web') {
+            Share.share({ message: diagInfo });
+          }
+        }},
+        { text: "確定" }
+      ]);
+    } catch (error) {
+      Alert.alert("診斷失敗", error.message);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
@@ -303,6 +361,13 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>測試功能</Text>
         
+        <TouchableOpacity style={styles.testButton} onPress={handleDiagnose}>
+          <Ionicons name="bug" size={20} color="#FF9800" />
+          <Text style={[styles.testButtonText, { color: "#FF9800" }]}>診斷同步狀態</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 12 }} />
+
         <TouchableOpacity style={styles.testButton} onPress={handleTestNotification}>
           <Ionicons name="notifications" size={20} color="#007AFF" />
           <Text style={styles.testButtonText}>測試通知（10 秒後）</Text>

@@ -1,26 +1,40 @@
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
+import Constants from "expo-constants";
+
+// 檢查是否在 Expo Go 中運行
+const isExpoGo = Constants.appOwnership === "expo";
+
+// 動態載入 expo-notifications（在 Expo Go 中可能會失敗）
+let Notifications = null;
+let Device = null;
+
+try {
+  Notifications = require("expo-notifications");
+  Device = require("expo-device");
+  
+  // 只在非 Expo Go 環境中設定通知處理器
+  if (!isExpoGo && Notifications) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  }
+} catch (e) {
+  console.log("expo-notifications 無法載入:", e.message);
+}
 
 // 6 小時（毫秒）
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-// 測試用：5 分鐘
-// const SIX_HOURS_MS = 5 * 60 * 1000;
-
-// 設定通知顯示方式
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 /**
  * 請求通知權限
  */
 export const requestNotificationPermissions = async () => {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || isExpoGo || !Notifications || !Device) {
+    console.log("通知功能在此環境中不可用");
     return false;
   }
 
@@ -65,7 +79,7 @@ export const requestNotificationPermissions = async () => {
  * 排程 6 小時後的提醒通知
  */
 export const scheduleReminderNotification = async () => {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || isExpoGo || !Notifications) {
     return;
   }
 
@@ -110,7 +124,7 @@ export const scheduleReminderNotification = async () => {
  * 取消所有提醒通知
  */
 export const cancelAllReminderNotifications = async () => {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || isExpoGo || !Notifications) {
     return;
   }
 
@@ -126,6 +140,11 @@ export const cancelAllReminderNotifications = async () => {
  * 設定通知點擊處理
  */
 export const setupNotificationResponseListener = (onNavigateToRecord) => {
+  if (isExpoGo || !Notifications) {
+    // 返回一個假的 subscription 物件
+    return { remove: () => {} };
+  }
+
   const subscription = Notifications.addNotificationResponseReceivedListener(
     (response) => {
       const data = response.notification.request.content.data;
@@ -145,7 +164,7 @@ export const setupNotificationResponseListener = (onNavigateToRecord) => {
  * 檢查 app 啟動時是否來自通知
  */
 export const checkInitialNotification = async () => {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || isExpoGo || !Notifications) {
     return null;
   }
 
@@ -164,7 +183,7 @@ export const checkInitialNotification = async () => {
  * 測試通知（立即發送）
  */
 export const sendTestNotification = async () => {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || isExpoGo || !Notifications) {
     return false;
   }
 

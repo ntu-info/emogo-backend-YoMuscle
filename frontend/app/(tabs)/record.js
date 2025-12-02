@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import * as Location from "expo-location";
 import { updateLastOpenTime, getUserId } from "../utils/storage";
 import { saveRecord as syncSaveRecord, isOnline } from "../services/sync";
@@ -172,6 +173,8 @@ export default function RecordScreen() {
             fetchLocation();
             // 重新檢查網路
             checkNetwork();
+            // 跳轉到「我的記錄」頁面
+            router.replace("/(tabs)");
           },
         },
       ]);
