@@ -1,6 +1,8 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
 
+import certifi
+
 from app.config import settings
 
 
@@ -11,7 +13,11 @@ class Database:
     
     async def connect(self):
         """建立資料庫連線"""
-        self.client = AsyncIOMotorClient(settings.MONGODB_URL)
+        mongo_url = settings.MONGODB_URL
+        client_options = {}
+        if "mongodb+srv://" in mongo_url or "tls=true" in mongo_url.lower():
+            client_options["tlsCAFile"] = certifi.where()
+        self.client = AsyncIOMotorClient(mongo_url, **client_options)
         # 測試連線
         await self.client.admin.command('ping')
         print(f"✅ Connected to MongoDB: {settings.DATABASE_NAME}")

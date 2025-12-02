@@ -92,6 +92,9 @@ mongod --version
 ```powershell
 # 開發模式（支援熱重載）
 uvicorn app.main:app --reload --port 8000
+
+# 在 render
+uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
 ---
