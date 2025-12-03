@@ -155,29 +155,14 @@ export default function RecordScreen() {
         console.log("通知功能尚不可用");
       }
 
-      // 根據同步狀態顯示不同訊息
-      const syncIcon = result.synced ? "☁️" : "📱";
-      const syncMessage = result.synced 
-        ? "記錄已同步到雲端！" 
-        : "記錄已存到本地，稍後可同步到雲端";
-
-      Alert.alert("成功", `${syncIcon} ${syncMessage}`, [
-        {
-          text: "確定",
-          onPress: () => {
-            // 重置表單
-            setMemo("");
-            setSelectedMood(null);
-            setVideoUri(null);
-            // 重新取得 GPS 位置（為下一筆記錄準備）
-            fetchLocation();
-            // 重新檢查網路
-            checkNetwork();
-            // 跳轉到「我的記錄」頁面
-            router.replace("/(tabs)");
-          },
-        },
-      ]);
+      // 重置表單
+      setMemo("");
+      setSelectedMood(null);
+      setVideoUri(null);
+      
+      // 立即跳轉到「我的記錄」頁面（不等用戶按確定）
+      router.replace("/(tabs)");
+      
     } catch (error) {
       Alert.alert("錯誤", "儲存失敗: " + error.message);
     } finally {

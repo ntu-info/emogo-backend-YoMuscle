@@ -333,14 +333,12 @@ export const fullSync = async (userId, onProgress = null) => {
 };
 
 /**
- * 儲存記錄（自動判斷線上/離線）
+ * 儲存記錄（先存本地，不阻塞同步）
  * @param {Object} recordData - 記錄資料
  * @param {string} userId - 使用者 ID
  * @returns {Object} 儲存結果
  */
 export const saveRecord = async (recordData, userId) => {
-  const online = await isOnline();
-  
   // 產生唯一的 client_id
   const clientId = recordData.id || `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
@@ -351,32 +349,15 @@ export const saveRecord = async (recordData, userId) => {
     synced: false,
   };
 
-  // 先儲存到本地
+  // 儲存到本地（快速返回）
   await addRecord(localRecord);
 
-  if (online) {
-    // 有網路，嘗試同步
-    try {
-      const syncResult = await syncSingleRecord(localRecord, userId);
-      if (syncResult.success) {
-        await markRecordAsSynced(clientId, syncResult.serverId);
-        return {
-          success: true,
-          synced: true,
-          record: { ...localRecord, serverId: syncResult.serverId, synced: true },
-          message: '記錄已儲存並同步到雲端',
-        };
-      }
-    } catch (error) {
-      console.warn('即時同步失敗，記錄已存本地:', error);
-    }
-  }
-
+  // 返回成功，背景同步由用戶手動觸發
   return {
     success: true,
     synced: false,
     record: localRecord,
-    message: online ? '記錄已儲存，同步失敗請稍後重試' : '記錄已儲存到本地，稍後連線時可同步',
+    message: '記錄已儲存，請到設定頁面同步到雲端',
   };
 };
 
