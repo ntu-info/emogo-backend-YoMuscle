@@ -10,7 +10,10 @@ class VideoUploadResponse(BaseModel):
     """影片上傳回應"""
     success: bool
     url: str
+    file_path: str
+    file_url: str
     file_size: int
+    size_bytes: int
     original_filename: str
     message: str
 
@@ -40,7 +43,10 @@ async def upload_video(
         return VideoUploadResponse(
             success=True,
             url=result["url"],
+            file_path=result["url"],
+            file_url=result["url"],
             file_size=result["file_size"],
+            size_bytes=result["file_size"],
             original_filename=result["original_filename"],
             message="影片上傳成功"
         )

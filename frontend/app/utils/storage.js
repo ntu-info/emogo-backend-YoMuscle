@@ -76,12 +76,14 @@ export const addRecord = async (record) => {
 
 /**
  * 刪除一筆記錄
- * @param {string} id - 記錄 ID (client_id)
+ * @param {string|number} id - 記錄 ID (client_id)
  */
 export const deleteRecord = async (id) => {
   try {
     const records = await getAllRecords();
-    const filteredRecords = records.filter((record) => record.id !== id);
+    // 確保比較時類型一致（都轉成字串）
+    const idStr = String(id);
+    const filteredRecords = records.filter((record) => String(record.id) !== idStr);
     await storage.setItem(RECORDS_KEY, JSON.stringify(filteredRecords));
     return true;
   } catch (error) {
@@ -97,13 +99,15 @@ export const removeRecord = deleteRecord;
 
 /**
  * 更新一筆記錄
- * @param {string} id - 記錄 ID (client_id)
+ * @param {string|number} id - 記錄 ID (client_id)
  * @param {Object} updates - 要更新的欄位
  */
 export const updateRecord = async (id, updates) => {
   try {
     const records = await getAllRecords();
-    const index = records.findIndex((record) => record.id === id);
+    // 確保比較時類型一致（都轉成字串）
+    const idStr = String(id);
+    const index = records.findIndex((record) => String(record.id) === idStr);
     if (index !== -1) {
       records[index] = { 
         ...records[index], 

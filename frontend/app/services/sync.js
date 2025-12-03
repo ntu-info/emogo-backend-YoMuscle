@@ -57,19 +57,27 @@ export const syncSingleRecord = async (record, userId) => {
     
     // 先上傳影片（如果有的話）
     let videoData = null;
-    if (record.videoUri && !record.videoUploaded) {
+    if ((record.videoUri || record.hasVideo) && !record.videoUploaded) {
       try {
-        console.log('📹 上傳影片:', record.videoUri);
-        const uploadResult = await api.uploadVideo(record.videoUri, userId);
-        videoData = {
-          file_path: uploadResult.file_path,
-          file_url: uploadResult.file_url,
-          duration_seconds: record.videoDuration || null,
-          size_bytes: uploadResult.size_bytes || null,
-        };
-        console.log('✅ 影片上傳成功');
+        const videoUri = record.videoUri;
+        console.log('📹 準備上傳影片:', videoUri);
+        
+        if (videoUri && videoUri.startsWith('file://')) {
+          const uploadResult = await api.uploadVideo(videoUri, userId);
+          console.log('📹 上傳結果:', JSON.stringify(uploadResult));
+          videoData = {
+            file_path: uploadResult.file_path || uploadResult.url,
+            file_url: uploadResult.file_url || uploadResult.url,
+            duration_seconds: record.videoDuration || null,
+            size_bytes: uploadResult.size_bytes || uploadResult.file_size || null,
+          };
+          console.log('✅ 影片上傳成功:', videoData.file_url);
+        } else {
+          console.log('⚠️ 影片 URI 無效或不存在:', videoUri);
+        }
       } catch (uploadError) {
         console.error('❌ 影片上傳失敗:', uploadError.message);
+        console.error('❌ 影片上傳錯誤詳情:', uploadError);
         // 影片上傳失敗不阻止文字資料同步
       }
     }
@@ -94,10 +102,11 @@ export const syncSingleRecord = async (record, userId) => {
       'anxious': '😰',
     };
 
-    // 準備 Entry 資料
+    // 準備 Entry 資料 - 確保 client_id 是字串
+    const clientIdStr = String(record.id);
     const entryData = {
       user_id: userId,
-      client_id: record.id, // 使用本地 ID 作為 client_id
+      client_id: clientIdStr,
       memo: record.content || record.memo || null,
       mood: record.mood ? {
         level: moodLevelMap[record.mood] || 3,
@@ -474,22 +483,50 @@ export const debugSync = async (userId) => {
     // 2. 顯示第一筆記錄的詳細資料
     const firstRecord = pendingRecords[0];
     log(`第一筆記錄 ID: ${firstRecord.id}`);
+    log(`有影片: ${firstRecord.hasVideo || !!firstRecord.videoUri}`);
+    log(`影片 URI: ${firstRecord.videoUri || '無'}`);
     log(`記錄內容: ${JSON.stringify(firstRecord).substring(0, 200)}...`);
 
-    // 3. 準備要發送的資料
+    // 3. 先上傳影片（如果有的話）
+    let videoData = null;
+    if ((firstRecord.videoUri || firstRecord.hasVideo) && !firstRecord.videoUploaded) {
+      const videoUri = firstRecord.videoUri;
+      log(`準備上傳影片: ${videoUri}`);
+      
+      if (videoUri && videoUri.startsWith('file://')) {
+        try {
+          const uploadResult = await api.uploadVideo(videoUri, userId);
+          log(`影片上傳結果: ${JSON.stringify(uploadResult)}`);
+          videoData = {
+            file_path: uploadResult.file_path || uploadResult.url,
+            file_url: uploadResult.file_url || uploadResult.url,
+            duration_seconds: firstRecord.videoDuration || null,
+            size_bytes: uploadResult.size_bytes || uploadResult.file_size || null,
+          };
+          log(`✅ 影片上傳成功: ${videoData.file_url}`);
+        } catch (videoError) {
+          log(`❌ 影片上傳失敗: ${videoError.message}`);
+        }
+      } else {
+        log(`⚠️ 影片 URI 無效: ${videoUri}`);
+      }
+    }
+
+    // 4. 準備要發送的資料 - 確保 client_id 是字串
     const moodLevelMap = { 'happy': 5, 'calm': 4, 'neutral': 3, 'sad': 2, 'angry': 1, 'anxious': 2 };
     const moodEmojiMap = { 'happy': '😄', 'calm': '😊', 'neutral': '😐', 'sad': '😔', 'angry': '😤', 'anxious': '😰' };
 
+    const clientIdStr = String(firstRecord.id);
     const entryData = {
       user_id: userId,
-      client_id: firstRecord.id,
+      client_id: clientIdStr,
       memo: firstRecord.content || firstRecord.memo || null,
       mood: firstRecord.mood ? {
         level: moodLevelMap[firstRecord.mood] || 3,
         emoji: moodEmojiMap[firstRecord.mood] || '😐',
         label: firstRecord.mood,
       } : null,
-      video: null,
+      video: videoData,
       location: firstRecord.location ? {
         latitude: firstRecord.location.latitude,
         longitude: firstRecord.location.longitude,
@@ -501,7 +538,7 @@ export const debugSync = async (userId) => {
 
     log(`準備發送的資料: ${JSON.stringify(entryData)}`);
 
-    // 4. 嘗試發送到後端
+    // 5. 嘗試發送到後端
     log('開始發送到後端...');
     try {
       const result = await api.createEntry(entryData);
