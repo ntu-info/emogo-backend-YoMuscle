@@ -43,6 +43,8 @@ const API_VERSION = '/api/v1';
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${API_VERSION}${endpoint}`;
   
+  console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+  
   const defaultHeaders = {
     'Content-Type': 'application/json',
   };
@@ -56,15 +58,28 @@ const apiRequest = async (endpoint, options = {}) => {
   };
 
   try {
+    console.log('📤 Request config:', JSON.stringify(config, null, 2));
     const response = await fetch(url, config);
     
+    console.log(`📥 Response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+      let errorData = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { detail: errorText };
+      }
       throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('✅ Response data:', JSON.stringify(data, null, 2).substring(0, 500));
+    return data;
   } catch (error) {
+    console.error('❌ API Error:', error.message);
     if (error.message.includes('Network request failed')) {
       throw new Error('網路連線失敗，請檢查網路狀態');
     }

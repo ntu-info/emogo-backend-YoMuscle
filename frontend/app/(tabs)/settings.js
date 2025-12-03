@@ -137,9 +137,23 @@ export default function SettingsScreen() {
       return;
     }
 
+    // 檢查是否已登入
+    if (!currentUserId) {
+      Alert.alert(
+        "尚未登入",
+        "請先註冊/登入後再同步",
+        [
+          { text: "取消", style: "cancel" },
+          { text: "前往登入", onPress: () => setShowRegisterModal(true) }
+        ]
+      );
+      return;
+    }
+
     setIsSyncing(true);
     try {
-      const userId = await getUserId();
+      // 使用當前登入的用戶 ID
+      const userId = currentUserId;
       console.log("開始同步, userId:", userId);
       
       const result = await fullSync(userId, (phase, current, total) => {
