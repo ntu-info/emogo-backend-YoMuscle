@@ -44,6 +44,18 @@ export const subscribeToNetworkChanges = (callback) => {
   });
 };
 
+const buildVideoPayload = (uploadResult, durationSeconds = null) => {
+  if (!uploadResult) return null;
+  const url = uploadResult.url || uploadResult.file_url || uploadResult.file_path;
+  if (!url) return null;
+  return {
+    url,
+    file_size: uploadResult.file_size ?? uploadResult.size_bytes ?? null,
+    duration: durationSeconds ?? uploadResult.duration ?? null,
+    thumbnail_url: uploadResult.thumbnail_url ?? null,
+  };
+};
+
 /**
  * 同步單筆記錄到後端
  * @param {Object} record - 本地記錄
@@ -65,13 +77,8 @@ export const syncSingleRecord = async (record, userId) => {
         if (videoUri && videoUri.startsWith('file://')) {
           const uploadResult = await api.uploadVideo(videoUri, userId);
           console.log('📹 上傳結果:', JSON.stringify(uploadResult));
-          videoData = {
-            file_path: uploadResult.file_path || uploadResult.url,
-            file_url: uploadResult.file_url || uploadResult.url,
-            duration_seconds: record.videoDuration || null,
-            size_bytes: uploadResult.size_bytes || uploadResult.file_size || null,
-          };
-          console.log('✅ 影片上傳成功:', videoData.file_url);
+          videoData = buildVideoPayload(uploadResult, record.videoDuration);
+          console.log('✅ 影片上傳成功:', videoData?.url);
         } else {
           console.log('⚠️ 影片 URI 無效或不存在:', videoUri);
         }
@@ -113,7 +120,7 @@ export const syncSingleRecord = async (record, userId) => {
         emoji: moodEmojiMap[record.mood] || '😐',
         label: record.mood,
       } : null,
-      video: videoData || (record.serverVideoData ? record.serverVideoData : null),
+      video: videoData || record.serverVideoData || null,
       location: record.location ? {
         latitude: record.location.latitude,
         longitude: record.location.longitude,
@@ -167,6 +174,16 @@ export const syncSingleRecord = async (record, userId) => {
     
     console.log('✅ 同步成功:', result._id);
 
+    const serverVideo = result.video || videoData || record.serverVideoData || null;
+    if (serverVideo) {
+      await updateRecord(record.id, {
+        serverVideoData: serverVideo,
+        videoUploaded: true,
+        videoUri: null,
+        hasVideo: true,
+      });
+    }
+
     return {
       success: true,
       serverId: result._id,
@@ -219,16 +236,23 @@ export const syncPendingRecords = async (userId, onProgress = null) => {
 
     const result = await syncSingleRecord(record, userId);
     
-    if (result.success) {
+      if (result.success) {
       // 更新本地記錄，標記為已同步
       await markRecordAsSynced(record.id, result.serverId);
       synced++;
     } else {
       failed++;
       // 確保錯誤是字串
-      const errorStr = typeof result.error === 'string' 
-        ? result.error 
-        : JSON.stringify(result.error);
+      let errorStr = '未知錯誤';
+      if (typeof result.error === 'string' && result.error.trim()) {
+        errorStr = result.error;
+      } else if (result.error) {
+        try {
+          errorStr = JSON.stringify(result.error, Object.getOwnPropertyNames(result.error));
+        } catch (jsonErr) {
+          errorStr = String(result.error);
+        }
+      }
       errors.push({
         recordId: record.id,
         error: errorStr,
@@ -259,20 +283,66 @@ export const syncPendingRecords = async (userId, onProgress = null) => {
  */
 export const pullFromServer = async (userId, fullSync = false) => {
   try {
-    let serverEntries;
-    
-    if (fullSync) {
-      // 完整同步 - 取得所有記錄
-      serverEntries = await api.getEntries({ user_id: userId, limit: 1000 });
-    } else {
-      // 增量同步 - 只取得上次同步後的變更
-      const lastSync = await getLastSyncTime();
-      if (lastSync) {
-        serverEntries = await api.getChangesSince(userId, lastSync);
-      } else {
-        serverEntries = await api.getEntries({ user_id: userId, limit: 1000 });
+    const normalizeEntries = (payload) => {
+      if (!payload) return [];
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload.entries)) return payload.entries;
+      return [];
+    };
+
+    const fetchAllEntries = async () => {
+      const PAGE_SIZE = 100; // FastAPI 限制 page_size <= 100
+      let page = 1;
+      const allEntries = [];
+      let totalPages = 1;
+
+      while (page <= totalPages) {
+        let response;
+        try {
+          response = await api.getEntries({
+            user_id: userId,
+            page,
+            page_size: PAGE_SIZE,
+          });
+        } catch (err) {
+          // Render 會在頁數超出時回傳 404，視為已無更多資料
+          const message = err?.message || '';
+          const isNotFound = message.includes('404') || message.includes('Not Found');
+          if (isNotFound) {
+            if (page === 1) {
+              console.warn('[sync] 伺服器沒有任何記錄，返回空結果');
+              return allEntries;
+            }
+            break;
+          }
+          throw err;
+        }
+
+        const entries = normalizeEntries(response);
+        allEntries.push(...entries);
+
+        const reportedTotalPages = response?.total_pages;
+        if (typeof reportedTotalPages === 'number' && reportedTotalPages > 0) {
+          totalPages = reportedTotalPages;
+        } else if (response?.total) {
+          totalPages = Math.max(1, Math.ceil(response.total / PAGE_SIZE));
+        } else if (entries.length < PAGE_SIZE) {
+          // 沒有更多資料
+          break;
+        }
+
+        if (entries.length === 0) {
+          break;
+        }
+
+        page += 1;
       }
-    }
+
+      return allEntries;
+    };
+
+    // 目前後端尚未提供 /sync/changes，所以統一改用完整同步。
+    const serverEntries = await fetchAllEntries();
 
     // 取得本地記錄以比對
     const localRecords = await getAllRecords();
@@ -302,6 +372,9 @@ export const pullFromServer = async (userId, fullSync = false) => {
             moodIntensity: entry.mood?.intensity,
             location: entry.location,
             serverVideoData: entry.video,
+            videoUploaded: !!entry.video,
+            hasVideo: !!entry.video,
+            videoUri: entry.video ? null : local.videoUri,
             synced: true,
             updatedAt: entry.updated_at,
           });
@@ -317,6 +390,9 @@ export const pullFromServer = async (userId, fullSync = false) => {
           moodIntensity: entry.mood?.intensity,
           location: entry.location,
           serverVideoData: entry.video,
+           hasVideo: !!entry.video,
+           videoUploaded: !!entry.video,
+           videoUri: null,
           createdAt: entry.created_at,
           updatedAt: entry.updated_at,
           synced: true,
@@ -445,14 +521,54 @@ export const saveRecord = async (recordData, userId) => {
   };
 
   // 儲存到本地（快速返回）
-  await addRecord(localRecord);
+  const storedRecord = await addRecord(localRecord);
 
-  // 返回成功，背景同步由用戶手動觸發
+  // 嘗試自動同步（若線上）
+  let autoSync = {
+    attempted: false,
+    success: false,
+  };
+
+  const online = await isOnline();
+
+  if (online && userId) {
+    autoSync.attempted = true;
+    try {
+      const syncResult = await syncSingleRecord(storedRecord, userId);
+      if (syncResult.success) {
+        const syncedRecord = await markRecordAsSynced(storedRecord.id, syncResult.serverId);
+        autoSync = {
+          attempted: true,
+          success: true,
+          serverId: syncResult.serverId,
+          record: syncedRecord,
+        };
+      } else {
+        autoSync = {
+          attempted: true,
+          success: false,
+          error: syncResult.error,
+        };
+      }
+    } catch (autoError) {
+      autoSync = {
+        attempted: true,
+        success: false,
+        error: autoError?.message || String(autoError),
+      };
+    }
+  } else if (!online) {
+    autoSync.reason = 'offline';
+  }
+
   return {
     success: true,
-    synced: false,
-    record: localRecord,
-    message: '記錄已儲存，請到設定頁面同步到雲端',
+    synced: autoSync.success,
+    record: autoSync.success ? autoSync.record : storedRecord,
+    autoSync,
+    message: autoSync.success
+      ? '記錄已儲存並同步到雲端'
+      : '記錄已儲存，待網路恢復後可同步到雲端',
   };
 };
 
@@ -497,13 +613,8 @@ export const debugSync = async (userId) => {
         try {
           const uploadResult = await api.uploadVideo(videoUri, userId);
           log(`影片上傳結果: ${JSON.stringify(uploadResult)}`);
-          videoData = {
-            file_path: uploadResult.file_path || uploadResult.url,
-            file_url: uploadResult.file_url || uploadResult.url,
-            duration_seconds: firstRecord.videoDuration || null,
-            size_bytes: uploadResult.size_bytes || uploadResult.file_size || null,
-          };
-          log(`✅ 影片上傳成功: ${videoData.file_url}`);
+          videoData = buildVideoPayload(uploadResult, firstRecord.videoDuration);
+          log(`✅ 影片上傳成功: ${videoData?.url}`);
         } catch (videoError) {
           log(`❌ 影片上傳失敗: ${videoError.message}`);
         }
@@ -546,6 +657,14 @@ export const debugSync = async (userId) => {
       
       // 標記為已同步
       await markRecordAsSynced(firstRecord.id, result._id);
+      if (result.video || videoData) {
+        await updateRecord(firstRecord.id, {
+          serverVideoData: result.video || videoData,
+          videoUploaded: true,
+          videoUri: null,
+          hasVideo: true,
+        });
+      }
       log('已標記為同步完成');
       
       return { 

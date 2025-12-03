@@ -277,6 +277,8 @@ export const getEntries = async (params = {}) => {
   if (params.user_id) queryParams.append('user_id', params.user_id);
   if (params.skip) queryParams.append('skip', params.skip);
   if (params.limit) queryParams.append('limit', params.limit);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.page_size) queryParams.append('page_size', params.page_size);
   if (params.mood) queryParams.append('mood', params.mood);
   if (params.start_date) queryParams.append('start_date', params.start_date);
   if (params.end_date) queryParams.append('end_date', params.end_date);

@@ -145,6 +145,13 @@ export default function RecordScreen() {
       // 使用同步服務儲存（會自動判斷線上/離線）
       const result = await syncSaveRecord(record, userId);
 
+      let autoSyncMessage = null;
+      if (result?.autoSync?.attempted && !result.autoSync.success) {
+        autoSyncMessage = `雲端同步失敗：${result.autoSync.error || "請稍後再試"}`;
+      } else if (!result?.autoSync?.attempted) {
+        autoSyncMessage = "目前為離線模式，記錄已保留在本機，請稍後於設定頁同步";
+      }
+
       // 重置提醒通知（新增記錄後，重新計算 6 小時）
       await updateLastOpenTime();
       // 動態載入通知模組（避免在舊 APK 崩潰）
@@ -160,8 +167,12 @@ export default function RecordScreen() {
       setSelectedMood(null);
       setVideoUri(null);
       
-      // 立即跳轉到「我的記錄」頁面（不等用戶按確定）
+      // 立即跳轉到「我的記錄」列表頁（不等用戶按確定）
       router.replace("/(tabs)");
+
+      if (autoSyncMessage) {
+        setTimeout(() => Alert.alert("同步提醒", autoSyncMessage), 300);
+      }
       
     } catch (error) {
       Alert.alert("錯誤", "儲存失敗: " + error.message);

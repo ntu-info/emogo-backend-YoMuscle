@@ -24,6 +24,34 @@ export default function SettingsScreen() {
   const [isTesting, setIsTesting] = useState(false);
   const [isDebugging, setIsDebugging] = useState(false);
 
+  // 查看本地記錄 - Debug 用
+  const handleViewLocalRecords = async () => {
+    try {
+      const records = await getAllRecords();
+      const pendingRecords = records.filter(r => !r.synced);
+      
+      let message = `📊 本地記錄總數: ${records.length}\n`;
+      message += `⏳ 待同步: ${pendingRecords.length}\n\n`;
+      
+      if (pendingRecords.length > 0) {
+        message += `--- 待同步記錄 ---\n`;
+        pendingRecords.slice(0, 3).forEach((r, i) => {
+          message += `\n📝 記錄 ${i + 1}:\n`;
+          message += `  ID: ${r.id}\n`;
+          message += `  內容: ${(r.memo || r.content || '').substring(0, 30)}...\n`;
+          message += `  心情: ${r.mood || '無'}\n`;
+          message += `  有影片: ${r.hasVideo || !!r.videoUri}\n`;
+          message += `  影片URI: ${r.videoUri ? r.videoUri.substring(0, 50) + '...' : '無'}\n`;
+          message += `  已上傳影片: ${r.videoUploaded || false}\n`;
+        });
+      }
+      
+      Alert.alert("📱 本地記錄狀態", message);
+    } catch (error) {
+      Alert.alert("錯誤", error.message);
+    }
+  };
+
   // Debug 同步函數 - 顯示詳細 log
   const handleDebugSync = async () => {
     if (!currentUserId) {
@@ -573,6 +601,15 @@ ${localRecords.length > 5 ? `\n...還有 ${localRecords.length - 5} 筆` : ''}
               <Text style={styles.syncButtonText}>🔍 Debug 同步 (顯示詳細 log)</Text>
             </>
           )}
+        </TouchableOpacity>
+
+        {/* 查看本地記錄按鈕 */}
+        <TouchableOpacity 
+          style={[styles.debugButton, { backgroundColor: '#8E44AD' }]} 
+          onPress={handleViewLocalRecords}
+        >
+          <Ionicons name="folder-open" size={20} color="#fff" />
+          <Text style={styles.syncButtonText}>📱 查看本地記錄</Text>
         </TouchableOpacity>
       </View>
 
