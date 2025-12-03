@@ -79,6 +79,57 @@ export default function SettingsScreen() {
     return () => unsubscribe();
   }, []);
 
+  // 用戶註冊
+  const handleRegister = async () => {
+    if (!registerName.trim()) return;
+    
+    setIsRegistering(true);
+    try {
+      const result = await registerUser(registerName.trim());
+      
+      // 儲存用戶資訊到本地
+      await setUserId(result.user_id);
+      await setUsername(result.username);
+      
+      // 更新狀態
+      setCurrentUserId(result.user_id);
+      setCurrentUsername(result.username);
+      setShowRegisterModal(false);
+      setRegisterName("");
+      
+      Alert.alert(
+        "✅ 成功", 
+        `歡迎，${result.username}！\n\n您的 ID: ${result.user_id}`
+      );
+    } catch (error) {
+      console.error("註冊失敗:", error);
+      Alert.alert("註冊失敗", error.message);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  // 用戶登出
+  const handleLogout = () => {
+    Alert.alert(
+      "確認登出",
+      "登出後您的本地記錄仍會保留，但需要重新登入才能同步到雲端。",
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "登出",
+          style: "destructive",
+          onPress: async () => {
+            await clearUserData();
+            setCurrentUsername(null);
+            setCurrentUserId(null);
+            Alert.alert("已登出", "您可以隨時重新登入");
+          },
+        },
+      ]
+    );
+  };
+
   // 手動同步
   const handleSync = async () => {
     if (!networkStatus) {
