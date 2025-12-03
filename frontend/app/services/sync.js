@@ -74,15 +74,35 @@ export const syncSingleRecord = async (record, userId) => {
       }
     }
 
+    // 心情對應表 (前端 mood value -> level)
+    const moodLevelMap = {
+      'happy': 5,
+      'calm': 4,
+      'neutral': 3,
+      'sad': 2,
+      'angry': 1,
+      'anxious': 2,
+    };
+
+    // 心情 emoji 對應表
+    const moodEmojiMap = {
+      'happy': '😄',
+      'calm': '😊',
+      'neutral': '😐',
+      'sad': '😔',
+      'angry': '😤',
+      'anxious': '😰',
+    };
+
     // 準備 Entry 資料
     const entryData = {
       user_id: userId,
       client_id: record.id, // 使用本地 ID 作為 client_id
       memo: record.content || record.memo || null,
       mood: record.mood ? {
-        type: record.mood,
-        intensity: record.moodIntensity || 5,
-        note: record.moodNote || null,
+        level: moodLevelMap[record.mood] || 3,
+        emoji: moodEmojiMap[record.mood] || '😐',
+        label: record.mood,
       } : null,
       video: videoData || (record.serverVideoData ? record.serverVideoData : null),
       location: record.location ? {
