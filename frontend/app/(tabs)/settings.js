@@ -178,59 +178,6 @@ export default function SettingsScreen() {
     });
   };
 
-  // 用戶註冊/登入
-  const handleRegister = async () => {
-    if (!registerName.trim()) {
-      Alert.alert("提示", "請輸入您的名稱");
-      return;
-    }
-
-    if (!networkStatus) {
-      Alert.alert("無網路", "註冊需要網路連線，請稍後再試");
-      return;
-    }
-
-    setIsRegistering(true);
-    try {
-      const result = await registerUser(registerName.trim());
-      
-      // 儲存到本地
-      await setUserId(result.user_id);
-      await setUsername(result.username);
-      
-      setCurrentUserId(result.user_id);
-      setCurrentUsername(result.username);
-      setShowRegisterModal(false);
-      setRegisterName("");
-      
-      Alert.alert("✅ 註冊成功", `歡迎, ${result.username}！\n\n您的 ID: ${result.user_id}`);
-    } catch (error) {
-      Alert.alert("註冊失敗", error.message);
-    } finally {
-      setIsRegistering(false);
-    }
-  };
-
-  // 登出
-  const handleLogout = () => {
-    Alert.alert(
-      "登出",
-      "確定要登出嗎？您的本地資料不會被刪除。",
-      [
-        { text: "取消", style: "cancel" },
-        {
-          text: "確定登出",
-          onPress: async () => {
-            await clearUserData();
-            setCurrentUsername(null);
-            setCurrentUserId(null);
-            Alert.alert("已登出", "您已成功登出");
-          },
-        },
-      ]
-    );
-  };
-
   // 匯出資料功能
   const handleExportData = async () => {
     try {
