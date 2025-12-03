@@ -74,9 +74,15 @@ async def dashboard_page(
         # 心情資訊
         mood = entry.get("mood", {})
         if mood:
-            mood_type = mood.get("type", "-")
-            mood_intensity = mood.get("intensity", "-")
-            mood_str = f"{mood_type} ({mood_intensity})"
+            mood_emoji = mood.get("emoji", "")
+            mood_label = mood.get("label", "")
+            mood_level = mood.get("level", "")
+            if mood_emoji or mood_label:
+                mood_str = f"{mood_emoji} {mood_label}" if mood_emoji else mood_label
+            elif mood_level:
+                mood_str = f"Level {mood_level}"
+            else:
+                mood_str = "-"
         else:
             mood_str = "-"
         
