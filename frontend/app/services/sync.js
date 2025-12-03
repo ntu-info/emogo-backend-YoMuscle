@@ -447,6 +447,98 @@ export const saveRecord = async (recordData, userId) => {
   };
 };
 
+/**
+ * Debug 同步 - 收集所有 log 並返回
+ * @param {string} userId - 使用者 ID
+ * @returns {Object} 包含所有 debug log 的同步結果
+ */
+export const debugSync = async (userId) => {
+  const logs = [];
+  const log = (msg) => {
+    const timestamp = new Date().toISOString().substr(11, 8);
+    logs.push(`[${timestamp}] ${msg}`);
+  };
+
+  try {
+    log(`開始 Debug 同步, userId: ${userId}`);
+
+    // 1. 取得待同步記錄
+    const pendingRecords = await getPendingSyncRecords();
+    log(`待同步記錄數: ${pendingRecords.length}`);
+    
+    if (pendingRecords.length === 0) {
+      log('沒有待同步的記錄');
+      return { success: true, logs, message: '沒有待同步的記錄' };
+    }
+
+    // 2. 顯示第一筆記錄的詳細資料
+    const firstRecord = pendingRecords[0];
+    log(`第一筆記錄 ID: ${firstRecord.id}`);
+    log(`記錄內容: ${JSON.stringify(firstRecord).substring(0, 200)}...`);
+
+    // 3. 準備要發送的資料
+    const moodLevelMap = { 'happy': 5, 'calm': 4, 'neutral': 3, 'sad': 2, 'angry': 1, 'anxious': 2 };
+    const moodEmojiMap = { 'happy': '😄', 'calm': '😊', 'neutral': '😐', 'sad': '😔', 'angry': '😤', 'anxious': '😰' };
+
+    const entryData = {
+      user_id: userId,
+      client_id: firstRecord.id,
+      memo: firstRecord.content || firstRecord.memo || null,
+      mood: firstRecord.mood ? {
+        level: moodLevelMap[firstRecord.mood] || 3,
+        emoji: moodEmojiMap[firstRecord.mood] || '😐',
+        label: firstRecord.mood,
+      } : null,
+      video: null,
+      location: firstRecord.location ? {
+        latitude: firstRecord.location.latitude,
+        longitude: firstRecord.location.longitude,
+        address: firstRecord.location.address || null,
+        accuracy: firstRecord.location.accuracy || null,
+      } : null,
+      created_at: firstRecord.createdAt || new Date().toISOString(),
+    };
+
+    log(`準備發送的資料: ${JSON.stringify(entryData)}`);
+
+    // 4. 嘗試發送到後端
+    log('開始發送到後端...');
+    try {
+      const result = await api.createEntry(entryData);
+      log(`✅ 成功! Server ID: ${result._id}`);
+      
+      // 標記為已同步
+      await markRecordAsSynced(firstRecord.id, result._id);
+      log('已標記為同步完成');
+      
+      return { 
+        success: true, 
+        logs, 
+        serverId: result._id,
+        message: '同步成功！' 
+      };
+    } catch (apiError) {
+      log(`❌ API 錯誤: ${apiError.message}`);
+      log(`錯誤詳情: ${JSON.stringify(apiError)}`);
+      return { 
+        success: false, 
+        logs, 
+        error: apiError.message,
+        message: `API 錯誤: ${apiError.message}`
+      };
+    }
+  } catch (error) {
+    log(`❌ 未知錯誤: ${error.message}`);
+    log(`Stack: ${error.stack}`);
+    return { 
+      success: false, 
+      logs, 
+      error: error.message,
+      message: `錯誤: ${error.message}`
+    };
+  }
+};
+
 export default {
   isOnline,
   subscribeToNetworkChanges,
@@ -455,4 +547,5 @@ export default {
   pullFromServer,
   fullSync,
   saveRecord,
+  debugSync,
 };

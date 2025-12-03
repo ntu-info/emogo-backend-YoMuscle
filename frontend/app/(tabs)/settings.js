@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Share, Pla
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { clearAllRecords, exportRecordsAsJSON, getAllRecords, getPendingSyncCount, getUserId, getLastSyncTime, getUsername, setUserId, setUsername, isUserRegistered, clearUserData } from "../utils/storage";
-import { fullSync, isOnline, subscribeToNetworkChanges } from "../services/sync";
+import { fullSync, isOnline, subscribeToNetworkChanges, debugSync } from "../services/sync";
 import { checkHealth, getEntries, registerUser, fullConnectionTest } from "../services/api";
 
 export default function SettingsScreen() {
@@ -22,6 +22,43 @@ export default function SettingsScreen() {
   
   // 連線測試狀態
   const [isTesting, setIsTesting] = useState(false);
+  const [isDebugging, setIsDebugging] = useState(false);
+
+  // Debug 同步函數 - 顯示詳細 log
+  const handleDebugSync = async () => {
+    if (!currentUserId) {
+      Alert.alert("錯誤", "請先註冊用戶");
+      return;
+    }
+
+    setIsDebugging(true);
+    try {
+      const result = await debugSync(currentUserId);
+      
+      // 顯示所有 log
+      const logText = result.logs.join('\n');
+      
+      Alert.alert(
+        result.success ? "✅ Debug 同步成功" : "❌ Debug 同步失敗",
+        logText,
+        [
+          { text: "複製", onPress: () => {
+            if (Share) {
+              Share.share({ message: logText });
+            }
+          }},
+          { text: "確定" }
+        ]
+      );
+      
+      // 重新載入待同步數量
+      loadPendingCount();
+    } catch (error) {
+      Alert.alert("Debug 錯誤", `錯誤: ${error.message}\n\nStack: ${error.stack}`);
+    } finally {
+      setIsDebugging(false);
+    }
+  };
 
   // 連線測試函數
   const handleConnectionTest = async () => {
@@ -515,6 +552,28 @@ ${localRecords.length > 5 ? `\n...還有 ${localRecords.length - 5} 筆` : ''}
             </>
           )}
         </TouchableOpacity>
+
+        {/* Debug 同步按鈕 */}
+        <TouchableOpacity 
+          style={[
+            styles.debugButton, 
+            (!networkStatus || isDebugging || !currentUserId) && styles.syncButtonDisabled
+          ]} 
+          onPress={handleDebugSync}
+          disabled={!networkStatus || isDebugging || !currentUserId}
+        >
+          {isDebugging ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={styles.syncButtonText}>Debug 中...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="bug" size={20} color="#fff" />
+              <Text style={styles.syncButtonText}>🔍 Debug 同步 (顯示詳細 log)</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -692,6 +751,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 8,
     marginTop: 12,
+  },
+  debugButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FF9500",
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 8,
   },
   syncButtonDisabled: {
     backgroundColor: "#ccc",
