@@ -105,7 +105,35 @@ export const syncSingleRecord = async (record, userId) => {
     } else {
       // 新記錄，建立
       console.log('➕ 建立新記錄');
-      result = await api.createEntry(entryData);
+      try {
+        result = await api.createEntry(entryData);
+      } catch (createError) {
+        // 如果是 409 (已存在)，嘗試查詢現有記錄
+        if (createError.message && createError.message.includes('409')) {
+          console.log('⚠️ 記錄已存在，嘗試查詢...');
+          try {
+            const existingEntries = await api.getEntries({ 
+              user_id: userId, 
+              limit: 100 
+            });
+            const existingEntry = existingEntries.entries?.find(
+              e => e.client_id === record.id
+            );
+            if (existingEntry) {
+              console.log('✅ 找到已存在的記錄:', existingEntry._id);
+              return {
+                success: true,
+                serverId: existingEntry._id,
+                record: existingEntry,
+                alreadyExists: true,
+              };
+            }
+          } catch (queryError) {
+            console.error('查詢失敗:', queryError);
+          }
+        }
+        throw createError;
+      }
     }
     
     console.log('✅ 同步成功:', result._id);
@@ -294,42 +322,80 @@ export const pullFromServer = async (userId, fullSync = false) => {
  * @returns {Object} 同步結果
  */
 export const fullSync = async (userId, onProgress = null) => {
-  // 檢查網路
-  const online = await isOnline();
-  if (!online) {
+  try {
+    // 檢查網路
+    const online = await isOnline();
+    if (!online) {
+      return {
+        success: false,
+        error: '無網路連線',
+        message: '請檢查網路連線後再試',
+      };
+    }
+
+    // 檢查後端連線
+    let health;
+    try {
+      health = await api.checkHealth();
+    } catch (healthError) {
+      return {
+        success: false,
+        error: `健康檢查失敗: ${healthError.message}`,
+        message: '無法連線到伺服器',
+      };
+    }
+    
+    if (!health.connected) {
+      return {
+        success: false,
+        error: '無法連線到伺服器',
+        message: '伺服器無回應，請稍後再試',
+      };
+    }
+
+    // 1. 先推送本地待同步記錄
+    if (onProgress) onProgress('uploading', 0, 0);
+    let pushResult;
+    try {
+      pushResult = await syncPendingRecords(userId, (current, total) => {
+        if (onProgress) onProgress('uploading', current, total);
+      });
+    } catch (pushError) {
+      return {
+        success: false,
+        error: `上傳失敗: ${pushError.message}`,
+        message: '上傳記錄時發生錯誤',
+      };
+    }
+
+    // 2. 再從伺服器拉取
+    if (onProgress) onProgress('downloading', 0, 0);
+    let pullResult;
+    try {
+      pullResult = await pullFromServer(userId, false);
+    } catch (pullError) {
+      return {
+        success: false,
+        error: `下載失敗: ${pullError.message}`,
+        message: '下載記錄時發生錯誤',
+        push: pushResult,
+      };
+    }
+
+    return {
+      success: pushResult.success && pullResult.success,
+      push: pushResult,
+      pull: pullResult,
+      message: `上傳: ${pushResult.synced}/${pushResult.total}, 下載: ${pullResult.added || 0} 新增, ${pullResult.updated || 0} 更新`,
+    };
+  } catch (error) {
     return {
       success: false,
-      error: '無網路連線',
-      message: '請檢查網路連線後再試',
+      error: `同步發生未知錯誤: ${error.message}`,
+      message: '同步過程發生錯誤',
+      stack: error.stack,
     };
   }
-
-  // 檢查後端連線
-  const health = await api.checkHealth();
-  if (!health.connected) {
-    return {
-      success: false,
-      error: '無法連線到伺服器',
-      message: '伺服器無回應，請稍後再試',
-    };
-  }
-
-  // 1. 先推送本地待同步記錄
-  if (onProgress) onProgress('uploading', 0, 0);
-  const pushResult = await syncPendingRecords(userId, (current, total) => {
-    if (onProgress) onProgress('uploading', current, total);
-  });
-
-  // 2. 再從伺服器拉取
-  if (onProgress) onProgress('downloading', 0, 0);
-  const pullResult = await pullFromServer(userId, false);
-
-  return {
-    success: pushResult.success && pullResult.success,
-    push: pushResult,
-    pull: pullResult,
-    message: `上傳: ${pushResult.synced}/${pushResult.total}, 下載: ${pullResult.added || 0} 新增, ${pullResult.updated || 0} 更新`,
-  };
 };
 
 /**
