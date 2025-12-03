@@ -5,6 +5,7 @@ const RECORDS_KEY = "emogo_records";
 const LAST_OPEN_KEY = "emogo_last_open";
 const LAST_SYNC_KEY = "emogo_last_sync";
 const USER_ID_KEY = "emogo_user_id";
+const USERNAME_KEY = "emogo_username";
 
 /**
  * 跨平台永久儲存
@@ -215,6 +216,57 @@ export const setUserId = async (userId) => {
     await storage.setItem(USER_ID_KEY, userId);
   } catch (error) {
     console.error("設定使用者 ID 失敗:", error);
+  }
+};
+
+/**
+ * 取得使用者名稱
+ */
+export const getUsername = async () => {
+  try {
+    return await storage.getItem(USERNAME_KEY);
+  } catch (error) {
+    console.error("取得使用者名稱失敗:", error);
+    return null;
+  }
+};
+
+/**
+ * 設定使用者名稱
+ * @param {string} username - 使用者名稱
+ */
+export const setUsername = async (username) => {
+  try {
+    await storage.setItem(USERNAME_KEY, username);
+  } catch (error) {
+    console.error("設定使用者名稱失敗:", error);
+  }
+};
+
+/**
+ * 檢查是否已註冊
+ */
+export const isUserRegistered = async () => {
+  try {
+    const userId = await storage.getItem(USER_ID_KEY);
+    const username = await storage.getItem(USERNAME_KEY);
+    // 只有當有 username 時才算已註冊（舊版自動生成的 user_id 不算）
+    return !!(userId && username);
+  } catch (error) {
+    console.error("檢查註冊狀態失敗:", error);
+    return false;
+  }
+};
+
+/**
+ * 清除使用者資料（登出）
+ */
+export const clearUserData = async () => {
+  try {
+    await storage.removeItem(USER_ID_KEY);
+    await storage.removeItem(USERNAME_KEY);
+  } catch (error) {
+    console.error("清除使用者資料失敗:", error);
   }
 };
 

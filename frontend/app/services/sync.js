@@ -52,10 +52,14 @@ export const subscribeToNetworkChanges = (callback) => {
  */
 export const syncSingleRecord = async (record, userId) => {
   try {
+    console.log('🔄 開始同步記錄:', record.id);
+    console.log('📦 記錄資料:', JSON.stringify(record, null, 2));
+    
     // 先上傳影片（如果有的話）
     let videoData = null;
     if (record.videoUri && !record.videoUploaded) {
       try {
+        console.log('📹 上傳影片:', record.videoUri);
         const uploadResult = await api.uploadVideo(record.videoUri, userId);
         videoData = {
           file_path: uploadResult.file_path,
@@ -63,8 +67,9 @@ export const syncSingleRecord = async (record, userId) => {
           duration_seconds: record.videoDuration || null,
           size_bytes: uploadResult.size_bytes || null,
         };
+        console.log('✅ 影片上傳成功');
       } catch (uploadError) {
-        console.error('影片上傳失敗:', uploadError);
+        console.error('❌ 影片上傳失敗:', uploadError.message);
         // 影片上傳失敗不阻止文字資料同步
       }
     }
@@ -73,7 +78,7 @@ export const syncSingleRecord = async (record, userId) => {
     const entryData = {
       user_id: userId,
       client_id: record.id, // 使用本地 ID 作為 client_id
-      memo: record.content || null,
+      memo: record.content || record.memo || null,
       mood: record.mood ? {
         type: record.mood,
         intensity: record.moodIntensity || 5,
@@ -89,15 +94,21 @@ export const syncSingleRecord = async (record, userId) => {
       created_at: record.createdAt || new Date().toISOString(),
     };
 
+    console.log('📤 準備發送資料:', JSON.stringify(entryData, null, 2));
+
     // 建立或更新 Entry
     let result;
     if (record.serverId) {
       // 已有 server ID，更新現有記錄
+      console.log('🔄 更新記錄:', record.serverId);
       result = await api.updateEntry(record.serverId, entryData);
     } else {
       // 新記錄，建立
+      console.log('➕ 建立新記錄');
       result = await api.createEntry(entryData);
     }
+    
+    console.log('✅ 同步成功:', result._id);
 
     return {
       success: true,
@@ -105,6 +116,8 @@ export const syncSingleRecord = async (record, userId) => {
       record: result,
     };
   } catch (error) {
+    console.error('❌ 同步失敗:', error.message);
+    console.error('❌ 錯誤詳情:', error);
     return {
       success: false,
       error: error.message,

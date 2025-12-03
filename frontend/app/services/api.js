@@ -241,6 +241,57 @@ export const getChangesSince = async (userId, lastSyncTime) => {
   });
 };
 
+// ==================== 用戶 API ====================
+
+/**
+ * 用戶註冊/登入（如果用戶名已存在則自動登入）
+ * @param {string} username - 用戶名稱
+ * @param {string} email - 電子郵件（可選）
+ * @returns {Promise<{user_id: string, username: string, email: string, created_at: string, last_login: string}>}
+ */
+export const registerUser = async (username, email = null) => {
+  return await apiRequest('/users/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      username: username,
+      email: email,
+    }),
+  });
+};
+
+/**
+ * 用戶登入
+ * @param {string} username - 用戶名稱
+ * @returns {Promise<{user_id: string, username: string, email: string, created_at: string, last_login: string}>}
+ */
+export const loginUser = async (username) => {
+  return await apiRequest('/users/login', {
+    method: 'POST',
+    body: JSON.stringify({
+      username: username,
+    }),
+  });
+};
+
+/**
+ * 取得用戶資訊
+ * @param {string} userId - 用戶 ID
+ */
+export const getUser = async (userId) => {
+  return await apiRequest(`/users/${userId}`, {
+    method: 'GET',
+  });
+};
+
+/**
+ * 取得所有用戶列表
+ */
+export const getAllUsers = async () => {
+  return await apiRequest('/users/', {
+    method: 'GET',
+  });
+};
+
 export default {
   checkHealth,
   getEntries,
@@ -252,4 +303,8 @@ export default {
   batchSync,
   getSyncStatus,
   getChangesSince,
+  registerUser,
+  loginUser,
+  getUser,
+  getAllUsers,
 };

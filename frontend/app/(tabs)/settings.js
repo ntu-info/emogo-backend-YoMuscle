@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Share, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Share, Platform, ActivityIndicator, TextInput, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { clearAllRecords, exportRecordsAsJSON, getAllRecords, getPendingSyncCount, getUserId, getLastSyncTime } from "../utils/storage";
+import { clearAllRecords, exportRecordsAsJSON, getAllRecords, getPendingSyncCount, getUserId, getLastSyncTime, getUsername, setUserId, setUsername, isUserRegistered, clearUserData } from "../utils/storage";
 import { fullSync, isOnline, subscribeToNetworkChanges } from "../services/sync";
-import { checkHealth, getEntries } from "../services/api";
+import { checkHealth, getEntries, registerUser } from "../services/api";
 
 export default function SettingsScreen() {
   const [pendingCount, setPendingCount] = useState(0);
@@ -12,6 +12,27 @@ export default function SettingsScreen() {
   const [networkStatus, setNetworkStatus] = useState(null);
   const [serverStatus, setServerStatus] = useState(null);
   const [lastSyncTime, setLastSyncTimeState] = useState(null);
+  
+  // 用戶相關狀態
+  const [currentUsername, setCurrentUsername] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [registerName, setRegisterName] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  // 載入用戶資訊
+  const loadUserInfo = async () => {
+    try {
+      const [username, userId] = await Promise.all([
+        getUsername(),
+        getUserId(),
+      ]);
+      setCurrentUsername(username);
+      setCurrentUserId(userId);
+    } catch (error) {
+      console.error("載入用戶資訊失敗:", error);
+    }
+  };
 
   // 載入同步相關資訊
   const loadSyncInfo = async () => {
@@ -41,6 +62,7 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadSyncInfo();
+      loadUserInfo();
     }, [])
   );
 
@@ -67,20 +89,27 @@ export default function SettingsScreen() {
     setIsSyncing(true);
     try {
       const userId = await getUserId();
+      console.log("開始同步, userId:", userId);
+      
       const result = await fullSync(userId, (phase, current, total) => {
         console.log(`同步進度: ${phase} ${current}/${total}`);
       });
 
+      console.log("同步結果:", JSON.stringify(result, null, 2));
+
       if (result.success) {
         Alert.alert("同步完成", result.message);
       } else {
-        Alert.alert("同步失敗", result.message || result.error);
+        // 顯示詳細錯誤
+        const errorDetail = JSON.stringify(result, null, 2);
+        Alert.alert("同步失敗", `${result.message || result.error}\n\n詳細: ${errorDetail}`);
       }
       
       // 重新載入同步資訊
       await loadSyncInfo();
     } catch (error) {
-      Alert.alert("同步錯誤", error.message);
+      console.error("同步錯誤:", error);
+      Alert.alert("同步錯誤", `${error.message}\n\nStack: ${error.stack}`);
     } finally {
       setIsSyncing(false);
     }
@@ -97,6 +126,60 @@ export default function SettingsScreen() {
       minute: "2-digit",
     });
   };
+
+  // 用戶註冊/登入
+  const handleRegister = async () => {
+    if (!registerName.trim()) {
+      Alert.alert("提示", "請輸入您的名稱");
+      return;
+    }
+
+    if (!networkStatus) {
+      Alert.alert("無網路", "註冊需要網路連線，請稍後再試");
+      return;
+    }
+
+    setIsRegistering(true);
+    try {
+      const result = await registerUser(registerName.trim());
+      
+      // 儲存到本地
+      await setUserId(result.user_id);
+      await setUsername(result.username);
+      
+      setCurrentUserId(result.user_id);
+      setCurrentUsername(result.username);
+      setShowRegisterModal(false);
+      setRegisterName("");
+      
+      Alert.alert("✅ 註冊成功", `歡迎, ${result.username}！\n\n您的 ID: ${result.user_id}`);
+    } catch (error) {
+      Alert.alert("註冊失敗", error.message);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  // 登出
+  const handleLogout = () => {
+    Alert.alert(
+      "登出",
+      "確定要登出嗎？您的本地資料不會被刪除。",
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "確定登出",
+          onPress: async () => {
+            await clearUserData();
+            setCurrentUsername(null);
+            setCurrentUserId(null);
+            Alert.alert("已登出", "您已成功登出");
+          },
+        },
+      ]
+    );
+  };
+
   // 匯出資料功能
   const handleExportData = async () => {
     try {
@@ -219,6 +302,101 @@ ${localRecords.length > 5 ? `\n...還有 ${localRecords.length - 5} 筆` : ''}
 
   return (
     <ScrollView style={styles.container}>
+      {/* 用戶帳號區塊 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>👤 帳號</Text>
+        
+        {currentUsername ? (
+          <>
+            <View style={styles.userInfoRow}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>
+                  {currentUsername.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.userDetails}>
+                <Text style={styles.userName}>{currentUsername}</Text>
+                <Text style={styles.userIdText} numberOfLines={1}>
+                  ID: {currentUserId}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+              <Text style={styles.logoutButtonText}>登出</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={styles.notLoggedIn}>
+            <Ionicons name="person-circle-outline" size={50} color="#ccc" />
+            <Text style={styles.notLoggedInText}>尚未登入</Text>
+            <Text style={styles.notLoggedInHint}>
+              登入後可在 Dashboard 看到您的名稱
+            </Text>
+            <TouchableOpacity 
+              style={styles.registerButton} 
+              onPress={() => setShowRegisterModal(true)}
+            >
+              <Ionicons name="person-add" size={20} color="#fff" />
+              <Text style={styles.registerButtonText}>註冊 / 登入</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* 註冊 Modal */}
+      <Modal
+        visible={showRegisterModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRegisterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>註冊 / 登入</Text>
+            <Text style={styles.modalHint}>
+              輸入您的名稱，如果已註冊過會自動登入
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="請輸入您的名稱"
+              value={registerName}
+              onChangeText={setRegisterName}
+              autoFocus={true}
+              maxLength={50}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowRegisterModal(false);
+                  setRegisterName("");
+                }}
+              >
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.modalConfirmButton,
+                  (!registerName.trim() || isRegistering) && styles.modalButtonDisabled
+                ]}
+                onPress={handleRegister}
+                disabled={!registerName.trim() || isRegistering}
+              >
+                {isRegistering ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>確認</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>雲端同步</Text>
         
@@ -571,5 +749,152 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     color: "#999",
+  },
+  // 用戶帳號樣式
+  userInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  userAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#007AFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatarText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  userDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  userIdText: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 2,
+  },
+  notLoggedIn: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  notLoggedInText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 8,
+  },
+  notLoggedInHint: {
+    fontSize: 13,
+    color: "#999",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  registerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#007AFF",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  registerButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0F0",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FFD0D0",
+  },
+  logoutButtonText: {
+    color: "#FF3B30",
+    fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
+  // Modal 樣式
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "85%",
+    maxWidth: 350,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  modalHint: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: 12,
+    alignItems: "center",
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  modalConfirmButton: {
+    flex: 1,
+    padding: 12,
+    alignItems: "center",
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: "#007AFF",
+  },
+  modalConfirmText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "500",
+  },
+  modalButtonDisabled: {
+    backgroundColor: "#ccc",
   },
 });

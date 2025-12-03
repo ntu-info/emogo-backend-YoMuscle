@@ -53,6 +53,12 @@ async def dashboard_page(
     # 取得所有不重複的 user_id
     all_user_ids = await collection.distinct("user_id")
     
+    # 取得用戶名稱映射
+    users_collection = database.get_collection("users")
+    users_cursor = users_collection.find({})
+    users_list = await users_cursor.to_list(length=1000)
+    user_name_map = {u["user_id"]: u.get("username", u["user_id"]) for u in users_list}
+    
     # 統計資料
     total_count = await collection.count_documents(query)
     
@@ -61,6 +67,7 @@ async def dashboard_page(
     for entry in entries:
         entry_id = str(entry.get("_id", ""))
         user = entry.get("user_id", "-")
+        username = user_name_map.get(user, user)  # 如果有註冊，顯示用戶名；否則顯示 user_id
         client_id = entry.get("client_id", "-")
         memo = entry.get("memo", "-") or "-"
         
@@ -99,13 +106,13 @@ async def dashboard_page(
         # 截斷過長的內容
         if len(memo) > 50:
             memo = memo[:50] + "..."
-        if len(user) > 30:
-            user = user[:30] + "..."
+        if len(username) > 30:
+            username = username[:30] + "..."
         
         table_rows += f"""
         <tr>
             <td class="id-cell" title="{entry_id}">{entry_id[:8]}...</td>
-            <td title="{user}">{user}</td>
+            <td title="{user}">{username}</td>
             <td>{memo}</td>
             <td>{mood_str}</td>
             <td>{video_str}</td>
@@ -118,8 +125,9 @@ async def dashboard_page(
     user_options = '<option value="">全部使用者</option>'
     for uid in all_user_ids:
         selected = 'selected' if uid == user_id else ''
-        display_uid = uid[:30] + "..." if len(uid) > 30 else uid
-        user_options += f'<option value="{uid}" {selected}>{display_uid}</option>'
+        display_name = user_name_map.get(uid, uid)
+        display_name = display_name[:30] + "..." if len(display_name) > 30 else display_name
+        user_options += f'<option value="{uid}" {selected}>{display_name}</option>'
     
     # 完整的 HTML 頁面
     html_content = f"""

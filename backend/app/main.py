@@ -6,7 +6,7 @@ import os
 
 from app.config import settings
 from app.database import database
-from app.routes import entry_router, sync_router, upload_router, dashboard_router
+from app.routes import entry_router, sync_router, upload_router, dashboard_router, user_router
 
 
 @asynccontextmanager
@@ -64,6 +64,7 @@ app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 app.include_router(entry_router, prefix="/api/v1")
 app.include_router(sync_router, prefix="/api/v1")
 app.include_router(upload_router, prefix="/api/v1")
+app.include_router(user_router)  # 用戶路由（自帶 /api/v1/users 前綴）
 app.include_router(dashboard_router)  # 儀表板路由（無前綴）
 
 
