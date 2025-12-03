@@ -103,6 +103,165 @@ export const checkHealth = async () => {
 };
 
 /**
+ * 完整連線測試 - 測試網路、後端、資料庫連線
+ * @returns {Object} 測試結果
+ */
+export const fullConnectionTest = async () => {
+  const results = {
+    timestamp: new Date().toISOString(),
+    apiBaseUrl: API_BASE_URL,
+    tests: []
+  };
+
+  // 測試 1: 基本網路連線 (ping Google)
+  try {
+    const startTime = Date.now();
+    const response = await fetch('https://www.google.com', { method: 'HEAD', mode: 'no-cors' });
+    results.tests.push({
+      name: '網路連線',
+      success: true,
+      latency: Date.now() - startTime,
+      message: '網路正常'
+    });
+  } catch (error) {
+    results.tests.push({
+      name: '網路連線',
+      success: false,
+      error: error.message,
+      message: '無法連接網路'
+    });
+  }
+
+  // 測試 2: 後端 Health Check
+  try {
+    const startTime = Date.now();
+    const url = `${API_BASE_URL}/health`;
+    const response = await fetch(url);
+    const latency = Date.now() - startTime;
+    
+    if (response.ok) {
+      const data = await response.json();
+      results.tests.push({
+        name: '後端連線',
+        success: true,
+        latency,
+        message: `後端正常 (${data.status})`,
+        data
+      });
+    } else {
+      results.tests.push({
+        name: '後端連線',
+        success: false,
+        latency,
+        message: `HTTP ${response.status}`,
+        error: response.statusText
+      });
+    }
+  } catch (error) {
+    results.tests.push({
+      name: '後端連線',
+      success: false,
+      error: error.message,
+      message: '無法連接後端伺服器'
+    });
+  }
+
+  // 測試 3: API 端點測試 (GET entries)
+  try {
+    const startTime = Date.now();
+    const url = `${API_BASE_URL}${API_VERSION}/entries?user_id=test_connection&limit=1`;
+    const response = await fetch(url);
+    const latency = Date.now() - startTime;
+    
+    if (response.ok) {
+      const data = await response.json();
+      results.tests.push({
+        name: 'API 端點',
+        success: true,
+        latency,
+        message: 'API 正常運作'
+      });
+    } else {
+      const errorText = await response.text();
+      results.tests.push({
+        name: 'API 端點',
+        success: false,
+        latency,
+        message: `HTTP ${response.status}`,
+        error: errorText
+      });
+    }
+  } catch (error) {
+    results.tests.push({
+      name: 'API 端點',
+      success: false,
+      error: error.message,
+      message: '無法存取 API'
+    });
+  }
+
+  // 測試 4: 寫入測試 (POST entry)
+  try {
+    const startTime = Date.now();
+    const testEntry = {
+      user_id: 'connection_test_user',
+      client_id: `test_${Date.now()}`,
+      memo: 'Connection test - will be deleted'
+    };
+    
+    const response = await fetch(`${API_BASE_URL}${API_VERSION}/entries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testEntry)
+    });
+    const latency = Date.now() - startTime;
+    
+    if (response.ok) {
+      const data = await response.json();
+      results.tests.push({
+        name: '資料庫寫入',
+        success: true,
+        latency,
+        message: '可以寫入資料庫',
+        entryId: data._id
+      });
+      
+      // 清理測試資料
+      try {
+        await fetch(`${API_BASE_URL}${API_VERSION}/entries/${data._id}`, {
+          method: 'DELETE'
+        });
+      } catch (e) {
+        // 忽略清理錯誤
+      }
+    } else {
+      const errorText = await response.text();
+      results.tests.push({
+        name: '資料庫寫入',
+        success: false,
+        latency,
+        message: `寫入失敗: HTTP ${response.status}`,
+        error: errorText
+      });
+    }
+  } catch (error) {
+    results.tests.push({
+      name: '資料庫寫入',
+      success: false,
+      error: error.message,
+      message: '無法寫入資料庫'
+    });
+  }
+
+  // 計算整體結果
+  results.allPassed = results.tests.every(t => t.success);
+  results.passedCount = results.tests.filter(t => t.success).length;
+  results.totalCount = results.tests.length;
+
+  return results;
+};
+
+/**
  * 取得所有 Entries (支援分頁和過濾)
  * @param {Object} params - 查詢參數
  * @param {string} params.user_id - 使用者 ID (必填)

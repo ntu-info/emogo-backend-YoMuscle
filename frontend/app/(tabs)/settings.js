@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { clearAllRecords, exportRecordsAsJSON, getAllRecords, getPendingSyncCount, getUserId, getLastSyncTime, getUsername, setUserId, setUsername, isUserRegistered, clearUserData } from "../utils/storage";
 import { fullSync, isOnline, subscribeToNetworkChanges } from "../services/sync";
-import { checkHealth, getEntries, registerUser } from "../services/api";
+import { checkHealth, getEntries, registerUser, fullConnectionTest } from "../services/api";
 
 export default function SettingsScreen() {
   const [pendingCount, setPendingCount] = useState(0);
@@ -19,6 +19,41 @@ export default function SettingsScreen() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [registerName, setRegisterName] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
+  
+  // 連線測試狀態
+  const [isTesting, setIsTesting] = useState(false);
+
+  // 連線測試函數
+  const handleConnectionTest = async () => {
+    setIsTesting(true);
+    try {
+      const results = await fullConnectionTest();
+      
+      // 格式化結果
+      let message = `🕐 測試時間: ${new Date().toLocaleTimeString()}\n`;
+      message += `🌐 API URL: ${results.apiBaseUrl}\n\n`;
+      
+      results.tests.forEach((test, i) => {
+        const icon = test.success ? '✅' : '❌';
+        message += `${icon} ${test.name}: ${test.message}`;
+        if (test.latency) message += ` (${test.latency}ms)`;
+        if (!test.success && test.error) message += `\n   錯誤: ${test.error}`;
+        message += '\n';
+      });
+      
+      message += `\n📊 結果: ${results.passedCount}/${results.totalCount} 通過`;
+      
+      Alert.alert(
+        results.allPassed ? "✅ 連線測試成功" : "⚠️ 連線測試有問題",
+        message,
+        [{ text: "確定" }]
+      );
+    } catch (error) {
+      Alert.alert("測試失敗", `無法執行連線測試:\n${error.message}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   // 載入用戶資訊
   const loadUserInfo = async () => {
@@ -551,6 +586,27 @@ ${localRecords.length > 5 ? `\n...還有 ${localRecords.length - 5} 筆` : ''}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>測試功能</Text>
         
+        {/* 連線測試按鈕 - 最重要的放最前面 */}
+        <TouchableOpacity 
+          style={[styles.connectionTestButton, isTesting && styles.buttonDisabled]} 
+          onPress={handleConnectionTest}
+          disabled={isTesting}
+        >
+          {isTesting ? (
+            <>
+              <ActivityIndicator size="small" color="#fff" />
+              <Text style={styles.connectionTestButtonText}>測試中...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="pulse" size={20} color="#fff" />
+              <Text style={styles.connectionTestButtonText}>🔌 連線測試（網路+後端+資料庫）</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={{ height: 12 }} />
+        
         <TouchableOpacity style={styles.testButton} onPress={handleDiagnose}>
           <Ionicons name="bug" size={20} color="#FF9800" />
           <Text style={[styles.testButtonText, { color: "#FF9800" }]}>診斷同步狀態</Text>
@@ -753,6 +809,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     marginLeft: 8,
+  },
+  connectionTestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4CAF50",
+    padding: 16,
+    borderRadius: 8,
+  },
+  connectionTestButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: "#ccc",
   },
   footer: {
     padding: 32,
