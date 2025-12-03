@@ -52,7 +52,7 @@ export default function SettingsScreen() {
       );
       
       // 重新載入待同步數量
-      loadPendingCount();
+      loadSyncInfo();
     } catch (error) {
       Alert.alert("Debug 錯誤", `錯誤: ${error.message}\n\nStack: ${error.stack}`);
     } finally {
