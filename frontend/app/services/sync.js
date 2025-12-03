@@ -116,11 +116,16 @@ export const syncSingleRecord = async (record, userId) => {
       record: result,
     };
   } catch (error) {
-    console.error('❌ 同步失敗:', error.message);
-    console.error('❌ 錯誤詳情:', error);
+    // 確保錯誤訊息是字串
+    const errorMessage = typeof error === 'string' 
+      ? error 
+      : error?.message || JSON.stringify(error);
+    console.error('❌ 同步失敗:', errorMessage);
+    console.error('❌ 錯誤類型:', typeof error);
+    console.error('❌ 錯誤物件:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     return {
       success: false,
-      error: error.message,
+      error: errorMessage,
     };
   }
 };
@@ -163,9 +168,13 @@ export const syncPendingRecords = async (userId, onProgress = null) => {
       synced++;
     } else {
       failed++;
+      // 確保錯誤是字串
+      const errorStr = typeof result.error === 'string' 
+        ? result.error 
+        : JSON.stringify(result.error);
       errors.push({
         recordId: record.id,
-        error: result.error,
+        error: errorStr,
       });
     }
   }
