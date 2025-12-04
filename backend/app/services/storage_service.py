@@ -1,8 +1,8 @@
 import os
 import uuid
+import mimetypes
 import aiofiles
 from datetime import datetime
-from typing import Optional
 from fastapi import UploadFile
 
 from app.config import settings
@@ -22,29 +22,110 @@ class StorageService:
     def _generate_filename(cls, original_filename: str) -> str:
         """產生唯一的檔案名稱"""
         ext = os.path.splitext(original_filename)[1].lower()
+        if not ext:
+            ext = ".mp4"
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:8]
         return f"{timestamp}_{unique_id}{ext}"
     
     @classmethod
-    def _is_allowed_video_type(cls, filename: str) -> bool:
+    def _is_allowed_video_type(cls, name_or_extension: str) -> bool:
         """檢查是否為允許的影片類型"""
-        ext = os.path.splitext(filename)[1].lower().lstrip('.')
-        allowed_types = settings.ALLOWED_VIDEO_TYPES.split(',')
+        ext = os.path.splitext(name_or_extension)[1].lower()
+        if ext:
+            ext = ext.lstrip('.')
+        else:
+            ext = name_or_extension.lower().lstrip('.')
+        allowed_types = [
+            file_type.strip().lower()
+            for file_type in settings.ALLOWED_VIDEO_TYPES.split(',')
+            if file_type.strip()
+        ]
         return ext in allowed_types
     
     @classmethod
     async def save_video(cls, file: UploadFile, user_id: str) -> dict:
         """儲存影片檔案（本地儲存）"""
-        if not cls._is_allowed_video_type(file.filename):
+        allowed_extensions = [
+            file_type.strip().lower()
+            for file_type in settings.ALLOWED_VIDEO_TYPES.split(',')
+            if file_type.strip()
+        ]
+        
+        original_filename = file.filename or ""
+        content_type = (file.content_type or "").lower()
+        
+        # 先從檔名取得副檔名
+        ext = os.path.splitext(original_filename)[1].lower()
+        ext_without_dot = ext.lstrip('.')
+        
+        # 如果檔名有副檔名，檢查是否為允許的格式
+        if ext_without_dot:
+            if ext_without_dot not in allowed_extensions:
+                # 副檔名不符合，檢查 content_type 是否為影片格式
+                if not content_type.startswith('video/'):
+                    # 既不是允許的副檔名，也不是影片的 content_type，拒絕
+                    raise ValueError(f"不支援的影片格式。允許的格式: {settings.ALLOWED_VIDEO_TYPES}")
+                # 是影片格式但副檔名不對，從 content_type 推斷正確的副檔名
+                content_type_map = {
+                    "video/quicktime": "mov",
+                    "video/mp4": "mp4",
+                    "video/mpeg4": "mp4",
+                    "video/x-msvideo": "avi",
+                    "video/avi": "avi",
+                }
+                if content_type in content_type_map:
+                    ext = f".{content_type_map[content_type]}"
+                    ext_without_dot = content_type_map[content_type]
+                else:
+                    # 無法推斷，拒絕
+                    raise ValueError(f"無法從 content_type 推斷影片格式。允許的格式: {settings.ALLOWED_VIDEO_TYPES}")
+        else:
+            # 沒有副檔名，從 content_type 推斷
+            if not content_type.startswith('video/'):
+                # 沒有副檔名且不是影片格式，拒絕
+                raise ValueError(f"檔案缺少副檔名且 content_type 不是影片格式。允許的格式: {settings.ALLOWED_VIDEO_TYPES}")
+            
+            content_type_map = {
+                "video/quicktime": "mov",
+                "video/mp4": "mp4",
+                "video/mpeg4": "mp4",
+                "video/x-msvideo": "avi",
+                "video/avi": "avi",
+            }
+            if content_type in content_type_map:
+                ext = f".{content_type_map[content_type]}"
+                ext_without_dot = content_type_map[content_type]
+            else:
+                guessed_ext = mimetypes.guess_extension(content_type)
+                if guessed_ext:
+                    guessed_ext_clean = guessed_ext.lstrip('.').lower()
+                    if guessed_ext_clean in allowed_extensions:
+                        ext = guessed_ext.lower()
+                        ext_without_dot = guessed_ext_clean
+                    else:
+                        raise ValueError(f"無法推斷支援的影片格式。允許的格式: {settings.ALLOWED_VIDEO_TYPES}")
+                else:
+                    raise ValueError(f"無法從 content_type 推斷影片格式。允許的格式: {settings.ALLOWED_VIDEO_TYPES}")
+        
+        # 確保最終的副檔名是允許的
+        if ext_without_dot not in allowed_extensions:
             raise ValueError(f"不支援的影片格式。允許的格式: {settings.ALLOWED_VIDEO_TYPES}")
+        
+        # 更新檔名
+        if not original_filename:
+            original_filename = f"uploaded_video{ext}"
+        else:
+            original_filename = original_filename.split('/')[-1]
+            if not original_filename.lower().endswith(ext):
+                original_filename = f"{original_filename}{ext}"
         
         # 建立使用者專屬目錄
         user_dir = os.path.join(cls._get_upload_dir(), "videos", user_id)
         os.makedirs(user_dir, exist_ok=True)
         
         # 產生唯一檔名
-        new_filename = cls._generate_filename(file.filename)
+        new_filename = cls._generate_filename(original_filename)
         file_path = os.path.join(user_dir, new_filename)
         
         # 讀取並寫入檔案
@@ -68,7 +149,7 @@ class StorageService:
         return {
             "url": relative_url,
             "file_size": file_size,
-            "original_filename": file.filename,
+            "original_filename": original_filename,
             "saved_filename": new_filename
         }
     

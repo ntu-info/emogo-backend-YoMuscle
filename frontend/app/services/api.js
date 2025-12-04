@@ -337,14 +337,72 @@ export const deleteEntry = async (entryId) => {
 export const uploadVideo = async (videoUri, userId) => {
   const url = `${API_BASE_URL}${API_VERSION}/upload/video`;
   
-  // 從 URI 取得檔案名稱
-  const filename = videoUri.split('/').pop() || `video_${Date.now()}.mp4`;
+  const timestamp = Date.now();
+
+  const sanitizeFilename = (value) => {
+    if (!value) {
+      return `video_${timestamp}`;
+    }
+    let sanitized = value.split('?')[0];
+    try {
+      sanitized = decodeURIComponent(sanitized);
+    } catch (e) {
+      // ignore decode errors, keep original
+    }
+    sanitized = sanitized.replace(/[^a-zA-Z0-9._-]/g, '_');
+    if (!sanitized) {
+      sanitized = `video_${timestamp}`;
+    }
+    return sanitized;
+  };
+
+  const inferExtension = (value) => {
+    if (!value) return null;
+    let target = value;
+    try {
+      target = decodeURIComponent(target);
+    } catch (e) {
+      // ignore decode errors
+    }
+    const directMatch = target.match(/\.([a-zA-Z0-9]{1,8})(?:$|\?)/);
+    if (directMatch) {
+      return directMatch[1].toLowerCase();
+    }
+    const encodedMatch = target.match(/%2E([a-zA-Z0-9]{1,8})/i);
+    return encodedMatch ? encodedMatch[1].toLowerCase() : null;
+  };
+
+  const allowedExtensions = ['mp4', 'mov', 'avi'];
+  let filename = sanitizeFilename(videoUri.split('/').pop());
+  let currentExt = inferExtension(filename);
+  let extension = currentExt || inferExtension(videoUri) || 'mp4';
+  extension = extension.toLowerCase();
+
+  if (!allowedExtensions.includes(extension)) {
+    extension = allowedExtensions.includes('mp4') ? 'mp4' : allowedExtensions[0];
+  }
+
+  if (!currentExt) {
+    filename = `${filename}.${extension}`;
+  } else if (!allowedExtensions.includes(currentExt)) {
+    filename = filename.replace(/\.[^.]+$/, `.${extension}`);
+    currentExt = extension;
+  } else {
+    extension = currentExt;
+  }
+
+  const mimeTypeMap = {
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    avi: 'video/x-msvideo',
+  };
+  const mimeType = mimeTypeMap[extension] || 'video/mp4';
   
   // 建立 FormData
   const formData = new FormData();
   formData.append('file', {
     uri: videoUri,
-    type: 'video/mp4',
+    type: mimeType,
     name: filename,
   });
   formData.append('user_id', userId);

@@ -114,3 +114,5 @@ venv.bak/
 
 # Node modules
 frontend/node_modules/
+# 測試資料夾
+data/

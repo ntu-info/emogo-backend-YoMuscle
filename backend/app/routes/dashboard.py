@@ -3,6 +3,7 @@
 提供網頁介面查看資料庫中的記錄
 """
 
+import html
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Query
@@ -87,9 +88,33 @@ async def dashboard_page(
             mood_str = "-"
         
         # 影片資訊
-        video = entry.get("video", {})
-        if video:
-            video_str = "✅ 有影片"
+        video = entry.get("video") or {}
+        video_url = ""
+        video_label = "播放影片"
+        if isinstance(video, dict):
+            video_url = video.get("url") or video.get("file_url") or video.get("file_path") or ""
+            original_name = video.get("original_filename")
+            if original_name:
+                video_label = original_name[:40]
+            elif video_url:
+                video_label = video_url.split('/')[-1][:40] or "影片"
+        if video_url:
+            escaped_url = html.escape(video_url, quote=True)
+            escaped_label = html.escape(video_label, quote=True)
+            video_str = f"""
+            <details class="video-details">
+                <summary>▶ {escaped_label}</summary>
+                <video controls preload="metadata" src="{escaped_url}" class="video-player">
+                    <source src="{escaped_url}">
+                    您的瀏覽器不支援內嵌影片，請使用
+                    <a href="{escaped_url}" target="_blank" rel="noopener">下載影片</a>。
+                </video>
+                <div class="video-actions">
+                    <a href="{escaped_url}" target="_blank" rel="noopener" class="video-link">在新分頁播放</a>
+                    <a href="{escaped_url}" download class="video-link">下載</a>
+                </div>
+            </details>
+            """
         else:
             video_str = "-"
         
@@ -334,6 +359,50 @@ async def dashboard_page(
                 font-family: monospace;
                 font-size: 12px;
                 color: #888;
+            }}
+            
+            .video-details {{
+                display: inline-block;
+            }}
+            
+            .video-details summary {{
+                cursor: pointer;
+                color: #667eea;
+                font-weight: 600;
+                outline: none;
+            }}
+            
+            .video-details summary::-webkit-details-marker {{
+                display: none;
+            }}
+            
+            .video-details[open] summary {{
+                color: #764ba2;
+            }}
+            
+            .video-player {{
+                width: 260px;
+                max-width: 100%;
+                margin-top: 10px;
+                border-radius: 8px;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            }}
+            
+            .video-actions {{
+                margin-top: 8px;
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+            }}
+            
+            .video-link {{
+                color: #667eea;
+                text-decoration: none;
+                font-weight: 500;
+            }}
+            
+            .video-link:hover {{
+                text-decoration: underline;
             }}
             
             .empty-state {{
