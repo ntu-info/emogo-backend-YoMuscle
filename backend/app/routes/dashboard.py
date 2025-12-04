@@ -91,17 +91,46 @@ async def dashboard_page(
         video = entry.get("video") or {}
         video_url = ""
         video_label = "播放影片"
+        is_google_drive = False
+        
         if isinstance(video, dict):
             video_url = video.get("url") or video.get("file_url") or video.get("file_path") or ""
             original_name = video.get("original_filename")
+            
+            # 檢查是否為 Google Drive 連結
+            if "drive.google.com" in video_url:
+                is_google_drive = True
+                # 從分享連結提取 file ID: /d/{fileId}/view 或 /file/d/{fileId}
+                import re
+                match = re.search(r'/d/([a-zA-Z0-9_-]+)', video_url)
+                if match:
+                    file_id = match.group(1)
+                    # 使用直接串流連結 (繞過 preview 頁面)
+                    video_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+            
             if original_name:
                 video_label = original_name[:40]
             elif video_url:
                 video_label = video_url.split('/')[-1][:40] or "影片"
+        
         if video_url:
             escaped_url = html.escape(video_url, quote=True)
             escaped_label = html.escape(video_label, quote=True)
-            video_str = f"""
+            
+            # Google Drive 用 iframe，其他用 video 標籤
+            if is_google_drive:
+                video_str = f"""
+            <details class="video-details" open>
+                <summary>▶ {escaped_label}</summary>
+                <video controls preload="metadata" src="{escaped_url}" class="video-player">
+                    <source src="{escaped_url}" type="video/mp4">
+                    您的瀏覽器不支援內嵌影片
+                </video>
+                <div class="video-actions">
+                    <a href="{escaped_url}" target="_blank" rel="noopener" class="video-link">下載影片</a>
+                </div>"""
+            else:
+                video_str = f"""
             <details class="video-details">
                 <summary>▶ {escaped_label}</summary>
                 <video controls preload="metadata" src="{escaped_url}" class="video-player">
