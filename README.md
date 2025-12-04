@@ -4,6 +4,10 @@
 
 Use this repo as a template to deploy a Python [FastAPI](https://fastapi.tiangolo.com) service on Render.
 
+## URL to my Render:  
+https://emogo-backend-yomuscle.onrender.com
+
+
 See https://render.com/docs/deploy-fastapi or follow the steps below:
 
 ## Manual Steps
